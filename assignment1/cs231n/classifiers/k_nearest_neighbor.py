@@ -1,11 +1,12 @@
 from builtins import range
 from builtins import object
 import numpy as np
-from past.builtins import xrange
+
+# from past.builtins import xrange
 
 
 class KNearestNeighbor(object):
-    """ a kNN classifier with L2 distance """
+    """a kNN classifier with L2 distance"""
 
     def __init__(self):
         pass
@@ -76,8 +77,8 @@ class KNearestNeighbor(object):
                 # not use a loop over dimension, nor use np.linalg.norm().          #
                 #####################################################################
                 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-                
-                dists[i,j]= np.sqrt(np.sum((X[i] - self.X_train[j])**2))  
+
+                dists[i, j] = np.sqrt(np.sum((X[i] - self.X_train[j]) ** 2))
 
                 # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
@@ -101,7 +102,7 @@ class KNearestNeighbor(object):
             #######################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            dists[i] = np.sqrt(np.sum((self.X_train - X[i])**2,axis=1))
+            dists[i] = np.sqrt(np.sum((self.X_train - X[i]) ** 2, axis=1))
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
@@ -132,8 +133,12 @@ class KNearestNeighbor(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # dists = np.sqrt(np.sum((self.X_train[:,np.newaxis] - X)**2,axis = 2)).T
-        dists = np.sqrt(-2*np.dot(X, self.X_train.T) + np.sum(np.square(self.X_train), axis = 1) + np.transpose([np.sum(np.square(X), axis = 1)]))
-        
+        dists = np.sqrt(
+            -2 * np.dot(X, self.X_train.T)
+            + np.sum(np.square(self.X_train), axis=1)
+            + np.transpose([np.sum(np.square(X), axis=1)])
+        )
+
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
 

@@ -1,7 +1,8 @@
 from builtins import range
 import numpy as np
 from random import shuffle
-from past.builtins import xrange
+
+# from past.builtins import xrange
 
 
 def svm_loss_naive(W, X, y, reg):
