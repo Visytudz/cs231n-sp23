@@ -55,7 +55,14 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        self.params["b1"] = np.zeros((hidden_dim,))
+        self.params["b2"] = np.zeros((num_classes,))
+        self.params["W1"] = np.random.normal(
+            scale=weight_scale, size=(input_dim, hidden_dim)
+        )
+        self.params["W2"] = np.random.normal(
+            scale=weight_scale, size=(hidden_dim, num_classes)
+        )
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -87,8 +94,11 @@ class TwoLayerNet(object):
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        train_num = X.shape[0]
+        X_flatten = X.reshape(train_num,-1)
+        scores_hidden = X_flatten.dot(self.params["W1"]) + self.params["b1"]
+        scores_activated = np.where(scores_hidden < 0, 0, scores_hidden)
+        scores = scores_activated.dot(self.params["W2"]) + self.params["b2"]
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -111,9 +121,35 @@ class TwoLayerNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        
+        scores_shifted = scores - np.max(scores, axis=1)[:, np.newaxis]
+        e_scores = np.exp(scores_shifted)
+        prob = e_scores / np.sum(e_scores, axis=1)[:, np.newaxis]
+        loss = np.mean(-np.log(prob[np.arange(train_num), y]))
+        loss += (
+            self.reg
+            * (np.sum(self.params["W1"] ** 2) + np.sum(self.params["W2"] ** 2))
+            / 2
+        )
 
-        pass
+        dL_dS = prob
+        dL_dS[np.arange(train_num), y] -= 1
+        dL_dS /= train_num
+        dL_dW2 = (scores_activated.T).dot(dL_dS) +  self.reg * self.params["W2"]
+        dL_db2 = np.sum(dL_dS, axis=0)
+        dL_dsa = dL_dS.dot(self.params["W2"].T)
 
+        dsa_dsh = np.where(scores_activated > 0, 1, 0)
+        dL_dsh = dL_dsa * dsa_dsh
+
+        dL_dW1 = X_flatten.T.dot(dL_dsh)+ self.reg * self.params["W1"]
+        dL_dX = dL_dsh.dot(self.params["W1"].T)
+        dL_db1 = np.sum(dL_dsh, axis=0)
+
+        grads["W2"] = dL_dW2
+        grads["b2"] = dL_db2
+        grads["W1"] = dL_dW1
+        grads["b1"] = dL_db1
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #

@@ -2,7 +2,6 @@ from builtins import range
 import numpy as np
 
 
-
 def affine_forward(x, w, b):
     """
     Computes the forward pass for an affine (fully-connected) layer.
@@ -27,8 +26,9 @@ def affine_forward(x, w, b):
     # will need to reshape the input into rows.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    train_num = x.shape[0]
+    x_flatten = np.reshape(x, (train_num, -1))
+    out = x_flatten.dot(w) + b
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -61,7 +61,11 @@ def affine_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    train_num = x.shape[0]
+    x_flatten = x.reshape((train_num, -1))
+    dw = (x_flatten.T).dot(dout)
+    dx = (dout.dot(w.T)).reshape(x.shape)
+    db = np.sum(dout, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -87,7 +91,7 @@ def relu_forward(x):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = np.where(x < 0, 0, x)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -114,7 +118,9 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dR_dx = np.ones_like(x)
+    dR_dx[x < 0] = 0
+    dx = dR_dx * dout
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -772,8 +778,15 @@ def svm_loss(x, y):
     # TODO: Copy over your solution from A1.
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    train_num, class_num = x.shape
+    margins = x - np.reshape(x[np.arange(train_num), y], (-1, 1)) + 1
+    margins[np.arange(train_num), y] = 0
+    margins[margins < 0] = 0
+    loss = np.mean(np.sum(margins, axis=1))
 
-    pass
+    dx = np.where(margins > 0, 1, 0).astype(np.float64)
+    dx[np.arange(train_num), y] = -np.sum(dx, axis=1)
+    dx /= train_num
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -803,8 +816,15 @@ def softmax_loss(x, y):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    train_num, class_num = x.shape
+    x_shifted = x - np.max(x, axis=1)[:, np.newaxis]
+    e_x = np.exp(x_shifted)
+    prob = e_x / np.sum(e_x, axis=1)[:, np.newaxis]
+    loss = np.mean(-np.log(prob[np.arange(train_num), y]))
 
+    dx = prob
+    dx[np.arange(train_num), y] -= 1
+    dx /= train_num
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
