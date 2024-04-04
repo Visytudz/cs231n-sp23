@@ -1,10 +1,3 @@
-from __future__ import print_function, division
-from future import standard_library
-
-standard_library.install_aliases()
-from builtins import range
-from builtins import object
-import os
 import pickle as pickle
 
 import numpy as np
@@ -259,19 +252,19 @@ class Solver(object):
         iterations_per_epoch = max(num_train // self.batch_size, 1)
         num_iterations = self.num_epochs * iterations_per_epoch
 
-        for t in range(num_iterations):
+        for t in range(1, num_iterations + 1):
             self._step()
 
             # Maybe print training loss
             if self.verbose and t % self.print_every == 0:
                 print(
                     "(Iteration %d / %d) loss: %f"
-                    % (t + 1, num_iterations, self.loss_history[-1])
+                    % (t, num_iterations, self.loss_history[-1])
                 )
 
             # At the end of every epoch, increment the epoch counter and decay
             # the learning rate.
-            epoch_end = (t + 1) % iterations_per_epoch == 0
+            epoch_end = t % iterations_per_epoch == 0
             if epoch_end:
                 self.epoch += 1
                 for k in self.optim_configs:
@@ -279,8 +272,8 @@ class Solver(object):
 
             # Check train and val accuracy on the first iteration, the last
             # iteration, and at the end of each epoch.
-            first_it = t == 0
-            last_it = t == num_iterations - 1
+            first_it = t == 1
+            last_it = t == num_iterations
             if first_it or last_it or epoch_end:
                 train_acc = self.check_accuracy(
                     self.X_train, self.y_train, num_samples=self.num_train_samples

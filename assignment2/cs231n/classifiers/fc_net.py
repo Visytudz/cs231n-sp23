@@ -74,7 +74,24 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        prefixs = ["W", "b", "gamma", "beta"]
+        keys = []
+        values = []
+
+        for i in range(self.num_layers):
+            nums = input_dim if i == 0 else hidden_dims[i - 1]
+            dims = num_classes if i == self.num_layers - 1 else hidden_dims[i]
+            W = weight_scale * np.random.rand(nums, dims)
+            b = np.zeros((1, dims))
+            gamma = np.ones((1, dims))
+            beta = np.zeros((1, dims))
+            keys += ["%s%d" % (prefix, i + 1) for prefix in prefixs]
+            values += [W, b, gamma, beta]
+
+        # the last layer hasn't gamma and beta
+        keys = keys[:-2]
+        values = values[:-2]
+        self.params.update((k, v) for k, v in zip(keys, values))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -107,7 +124,7 @@ class FullyConnectedNet(object):
 
     def loss(self, X, y=None):
         """Compute loss and gradient for the fully connected net.
-        
+
         Inputs:
         - X: Array of input data of shape (N, d_1, ..., d_k)
         - y: Array of labels, of shape (N,). y[i] gives the label for X[i].
@@ -148,7 +165,23 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        prefixs = ["W", "b", "gamma", "beta"]
+        caches = []
+        for i in range(self.num_layers - 1):
+            keys = ["%s%d" % (prefix, i + 1) for prefix in prefixs]
+            W, b, gamma, beta = [self.params[key] for key in keys]
+            # forward
+            X_affine, cache_affine = affine_forward(X, W, b)
+            X_relu, cache_relu = relu_forward(X_affine)
+            X = X_relu
+            # save cache
+            caches.append((cache_affine, cache_relu))
+
+        # compute scores for the last layer
+        W = self.params[f"W{self.num_layers}"]
+        b = self.params[f"b{self.num_layers}"]
+        scores, cache_affine = affine_forward(X, W, b)
+        caches.append((cache_affine,))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -175,7 +208,25 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # loss and backward the last layer
+        loss, ds = softmax_loss(scores, y)
+        Ws = [self.params[f"W{i+1}"] for i in range(self.num_layers)]
+        loss += 0.5 * self.reg * np.mean([np.sum(W**2) for W in Ws])
+        dx, dw, db = affine_backward(ds, caches.pop()[0])
+        dw += self.reg * self.params[f"W{self.num_layers}"] / self.num_layers
+        keys = ["%s%d" % (prefix, self.num_layers) for prefix in prefixs[0:2]]
+        values = [dw, db]
+
+        # backward for the hidden layers
+        for i in range(self.num_layers - 1, 0, -1):
+            cache_affine, cache_relu = caches.pop()
+            dr = relu_backward(dx, cache_relu)
+            dx, dw, db = affine_backward(dr, cache_affine)
+            dw += self.reg * self.params[f"W{i}"] / self.num_layers
+            keys += ["%s%d" % (prefix, i) for prefix in prefixs[0:2]]
+            values += [dw, db]
+
+        grads.update((k, v) for k, v in zip(keys, values))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
