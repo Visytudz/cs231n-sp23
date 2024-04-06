@@ -126,6 +126,7 @@ class Solver(object):
         self.checkpoint_name = kwargs.pop("checkpoint_name", None)
         self.print_every = kwargs.pop("print_every", 10)
         self.verbose = kwargs.pop("verbose", True)
+        self.early_stopping = kwargs.pop("early_stopping", None)
 
         # Throw an error if there are extra keyword arguments
         if len(kwargs) > 0:
@@ -251,6 +252,7 @@ class Solver(object):
         num_train = self.X_train.shape[0]
         iterations_per_epoch = max(num_train // self.batch_size, 1)
         num_iterations = self.num_epochs * iterations_per_epoch
+        num_unoptimizations = 0
 
         for t in range(1, num_iterations + 1):
             self._step()
@@ -295,8 +297,11 @@ class Solver(object):
                 if val_acc > self.best_val_acc:
                     self.best_val_acc = val_acc
                     self.best_params = {}
+                    num_unoptimizations = 0
                     for k, v in self.model.params.items():
                         self.best_params[k] = v.copy()
 
+                if self.early_stopping and num_unoptimizations >= self.early_stopping:
+                    break
         # At the end of training swap the best params into the model
         self.model.params = self.best_params
