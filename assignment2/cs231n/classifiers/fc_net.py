@@ -158,22 +158,32 @@ class FullyConnectedNet(object):
 
         prefixs = ["W", "b", "gamma", "beta"]
         caches = []
-        # forward the hidden layers
-        for i in range(self.num_layers - 1):
-            keys = ["%s%d" % (prefix, i + 1) for prefix in prefixs]
-            W, b, gamma, beta = [self.params.get(key, None) for key in keys]
+        # forward
+        for i in range(self.num_layers):
+            # get parameters
+            W, b, gamma, beta = [
+                self.params.get(f"{prefix}{i+1}", None) for prefix in prefixs
+            ]
+            bn_param = self.bn_params[i] if gamma is not None else None
+            dropout_param = self.dropout_param if self.use_dropout else None
+
             # forward
-            X_affine, cache_affine = affine_forward(X, W, b)
-            X_relu, cache_relu = relu_forward(X_affine)
-            X = X_relu
+            X, cache = generic_forward(
+                X,
+                W,
+                b,
+                gamma,
+                beta,
+                bn_param,
+                dropout_param,
+                last=i == self.num_layers - 1,
+            )
+
             # save cache
-            caches.append((cache_affine, cache_relu))
+            caches.append(cache)
 
         # compute scores for the last layer
-        W = self.params[f"W{self.num_layers}"]
-        b = self.params[f"b{self.num_layers}"]
-        scores, cache_affine = affine_forward(X, W, b)
-        caches.append((cache_affine,))
+        scores = X
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -200,25 +210,21 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        # loss and backward the last layer
-        loss, ds = softmax_loss(scores, y)
+        # loss
+        loss, dx = softmax_loss(scores, y)
         Ws = [self.params[f"W{i+1}"] for i in range(self.num_layers)]
         loss += 0.5 * self.reg * np.sum([np.sum(W**2) for W in Ws])
-        dx, dw, db = affine_backward(ds, caches.pop()[0])
-        dw += self.reg * self.params[f"W{self.num_layers}"]
-        keys = ["%s%d" % (prefix, self.num_layers) for prefix in prefixs[0:2]]
-        values = [dw, db]
 
-        # backward for the hidden layers
-        for i in range(self.num_layers - 1, 0, -1):
-            cache_affine, cache_relu = caches.pop()
-            dr = relu_backward(dx, cache_relu)
-            dx, dw, db = affine_backward(dr, cache_affine)
+        # backward
+        for i in range(self.num_layers, 0, -1):
+            dx, dw, db, dgamma, dbeta = generic_backward(dx, caches.pop())
             dw += self.reg * self.params[f"W{i}"]
-            keys += ["%s%d" % (prefix, i) for prefix in prefixs[0:2]]
-            values += [dw, db]
+            grads[f"W{i}"] = dw
+            grads[f"b{i}"] = db
 
-        grads.update((k, v) for k, v in zip(keys, values))
+            if dgamma is not None:
+                grads[f"gamma{i}"] = dgamma
+                grads[f"beta{i}"] = dbeta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

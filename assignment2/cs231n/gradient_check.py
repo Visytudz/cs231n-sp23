@@ -2,7 +2,7 @@ import numpy as np
 from random import randrange
 
 
-def eval_numerical_gradient(f, x, verbose=True, h=0.00001):
+def eval_numerical_gradient(f, x, verbose=False, h=0.00001):
     """
     a naive implementation of numerical gradient of f at x
     - f should be a function that takes a single argument
@@ -33,7 +33,7 @@ def eval_numerical_gradient(f, x, verbose=True, h=0.00001):
     return grad
 
 
-def eval_numerical_gradient_array(f, x, df, h=1e-5):
+def eval_numerical_gradient_array(f, x, df=1, h=1e-5):
     """
     Evaluate a numeric gradient for a function that accepts a numpy
     array and returns a numpy array.
@@ -127,3 +127,5 @@ def grad_check_sparse(f, x, analytic_grad, num_checks=10, h=1e-5):
             "numerical: %f analytic: %f, relative error: %e"
             % (grad_numerical, grad_analytic, rel_error)
         )
+def aa():
+    ""
