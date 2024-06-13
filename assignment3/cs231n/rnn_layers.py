@@ -35,7 +35,7 @@ def affine_backward(dout, cache):
       - x: Input data, of shape (N, d_1, ... d_k)
       - w: Weights, of shape (D, M)
       - b: Biases, of shape (M,)
-      
+
     Returns a tuple of:
     - dx: Gradient with respect to x, of shape (N, d1, ..., d_k)
     - dw: Gradient with respect to w, of shape (D, M)
@@ -73,7 +73,8 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    next_h = np.tanh(x.dot(Wx) + prev_h.dot(Wh) + b)
+    cache = (next_h, (x, Wx, b), (prev_h, Wh, b))
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -105,7 +106,10 @@ def rnn_step_backward(dnext_h, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    next_h, cache_x, cache_h = cache
+    dz = (1 - next_h**2) * dnext_h
+    dx, dWx, db = affine_backward(dz, cache_x)
+    dprev_h, dWh, _ = affine_backward(dz, cache_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -116,7 +120,7 @@ def rnn_step_backward(dnext_h, cache):
 
 def rnn_forward(x, h0, Wx, Wh, b):
     """Run a vanilla RNN forward on an entire sequence of data.
-    
+
     We assume an input sequence composed of T vectors, each of dimension D. The RNN uses a hidden
     size of H, and we work over a minibatch containing N sequences. After running the RNN forward,
     we return the hidden states for all timesteps.
@@ -140,7 +144,14 @@ def rnn_forward(x, h0, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    h = [h0]
+    cache = []
+    for t in range(x.shape[1]):
+        next_h, cache_t = rnn_step_forward(x[:, t], h[t], Wx, Wh, b)
+        h.append(next_h)
+        cache.append(cache_t)
+
+    h = np.stack(h[1:], axis=1)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -154,8 +165,8 @@ def rnn_backward(dh, cache):
 
     Inputs:
     - dh: Upstream gradients of all hidden states, of shape (N, T, H)
-    
-    NOTE: 'dh' contains the upstream gradients produced by the 
+
+    NOTE: 'dh' contains the upstream gradients produced by the
     individual loss functions at each timestep, *not* the gradients
     being passed between timesteps (which you'll have to compute yourself
     by calling rnn_step_backward in a loop).
@@ -175,7 +186,19 @@ def rnn_backward(dh, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, H, D = *dh.shape, cache[0][1][0].shape[1]
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, H))
+    dWh = np.zeros((H, H))
+    db = np.zeros((H,))
+
+    for t in range(T - 1, -1, -1):
+        dx_t, dh0, dWx_t, dWh_t, db_t = rnn_step_backward(dh[:, t] + dh0, cache[t])
+        dWx += dWx_t
+        dWh += dWh_t
+        db += db_t
+        dx[:, t] = dx_t
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -186,7 +209,7 @@ def rnn_backward(dh, cache):
 
 def word_embedding_forward(x, W):
     """Forward pass for word embeddings.
-    
+
     We operate on minibatches of size N where
     each sequence has length T. We assume a vocabulary of V words, assigning each
     word to a vector of dimension D.
@@ -208,7 +231,7 @@ def word_embedding_forward(x, W):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out, cache = W[x], (x, W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -219,7 +242,7 @@ def word_embedding_forward(x, W):
 
 def word_embedding_backward(dout, cache):
     """Backward pass for word embeddings.
-    
+
     We cannot back-propagate into the words
     since they are integers, so we only return gradient for the word embedding
     matrix.
@@ -242,7 +265,9 @@ def word_embedding_backward(dout, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, W = cache
+    dW = np.zeros_like(W)
+    np.add.at(dW,x,dout)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -338,7 +363,7 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
 
 def lstm_forward(x, h0, Wx, Wh, b):
     """Forward pass for an LSTM over an entire sequence of data.
-    
+
     We assume an input sequence composed of T vectors, each of dimension D. The LSTM uses a hidden
     size of H, and we work over a minibatch containing N sequences. After running the LSTM forward,
     we return the hidden states for all timesteps.
@@ -408,24 +433,24 @@ def lstm_backward(dh, cache):
 
 def temporal_affine_forward(x, w, b):
     """Forward pass for a temporal affine layer.
-    
-    The input is a set of D-dimensional
+
+    The input is a set of H-dimensional
     vectors arranged into a minibatch of N timeseries, each of length T. We use
     an affine function to transform each of those vectors into a new vector of
-    dimension M.
+    dimension V.
 
     Inputs:
-    - x: Input data of shape (N, T, D)
-    - w: Weights of shape (D, M)
-    - b: Biases of shape (M,)
+    - x: Input data of shape (N, T, H)
+    - w: Weights of shape (H, V)
+    - b: Biases of shape (V,)
 
     Returns a tuple of:
-    - out: Output data of shape (N, T, M)
+    - out: Output data of shape (N, T, V)
     - cache: Values needed for the backward pass
     """
-    N, T, D = x.shape
-    M = b.shape[0]
-    out = x.reshape(N * T, D).dot(w).reshape(N, T, M) + b
+    N, T, H = x.shape
+    V = b.shape[0]
+    out = x.reshape(N * T, H).dot(w).reshape(N, T, V) + b
     cache = x, w, b, out
     return out, cache
 
@@ -434,28 +459,28 @@ def temporal_affine_backward(dout, cache):
     """Backward pass for temporal affine layer.
 
     Input:
-    - dout: Upstream gradients of shape (N, T, M)
+    - dout: Upstream gradients of shape (N, T, V)
     - cache: Values from forward pass
 
     Returns a tuple of:
-    - dx: Gradient of input, of shape (N, T, D)
-    - dw: Gradient of weights, of shape (D, M)
-    - db: Gradient of biases, of shape (M,)
+    - dh: Gradient of input, of shape (N, T, H)
+    - dw: Gradient of weights, of shape (H, V)
+    - db: Gradient of biases, of shape (V,)
     """
-    x, w, b, out = cache
-    N, T, D = x.shape
-    M = b.shape[0]
+    h, w, b, out = cache
+    N, T, H = h.shape
+    V = b.shape[0]
 
-    dx = dout.reshape(N * T, M).dot(w.T).reshape(N, T, D)
-    dw = dout.reshape(N * T, M).T.dot(x.reshape(N * T, D)).T
+    dh = dout.reshape(N * T, V).dot(w.T).reshape(N, T, H)
+    dw = dout.reshape(N * T, V).T.dot(h.reshape(N * T, H)).T
     db = dout.sum(axis=(0, 1))
 
-    return dx, dw, db
+    return dh, dw, db
 
 
 def temporal_softmax_loss(x, y, mask, verbose=False):
     """A temporal version of softmax loss for use in RNNs.
-    
+
     We assume that we are making predictions over a vocabulary of size V for each timestep of a
     timeseries of length T, over a minibatch of size N. The input x gives scores for all vocabulary
     elements at all timesteps, and y gives the indices of the ground-truth element at each timestep.
