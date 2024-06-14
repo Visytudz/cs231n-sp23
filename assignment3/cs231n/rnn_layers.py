@@ -267,7 +267,7 @@ def word_embedding_backward(dout, cache):
 
     x, W = cache
     dW = np.zeros_like(W)
-    np.add.at(dW,x,dout)
+    np.add.at(dW, x, dout)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -316,7 +316,13 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    a = x.dot(Wx) + prev_h.dot(Wh) + b
+    ai, af, ao, ablock = np.hsplit(a, 4)
+    i, f, o, block = sigmoid(ai), sigmoid(af), sigmoid(ao), np.tanh(ablock)
+    next_c = prev_c * f + block * i
+    next_h = np.tanh(next_c) * o
+
+    cache = (prev_c, next_c), (i, f, o, block), (x, Wx, b), (prev_h, Wh, b)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -351,7 +357,22 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    (prev_c, next_c), (i, f, o, block), cache_x, cache_h = cache
+
+    znext_c = np.tanh(next_c)
+    do = znext_c * dnext_h
+    dnext_c = dnext_c + o * dnext_h * (1 - znext_c**2)
+    dprev_c = dnext_c * f
+    df = dnext_c * prev_c
+    di = dnext_c * block
+    dblock = dnext_c * i
+
+    dai, daf, dao = [dy * y * (1 - y) for (y, dy) in [(i, di), (f, df), (o, do)]]
+    dablock = dblock * (1 - block**2)
+
+    da = np.hstack([dai, daf, dao, dablock])
+    dx, dWx, db = affine_backward(da, cache_x)
+    dprev_h, dWh, _ = affine_backward(da, cache_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -368,7 +389,7 @@ def lstm_forward(x, h0, Wx, Wh, b):
     size of H, and we work over a minibatch containing N sequences. After running the LSTM forward,
     we return the hidden states for all timesteps.
 
-    Note that the initial cell state is passed as input, but the initial cell state is set to zero.
+    Note that the initial hidden state is passed as input, but the initial cell state is set to zero.
     Also note that the cell state is not returned; it is an internal variable to the LSTM and is not
     accessed from outside.
 
@@ -390,7 +411,15 @@ def lstm_forward(x, h0, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    h = [h0]
+    c = np.zeros_like(h0)
+    cache = []
+    for t in range(x.shape[1]):
+        next_h, c, cache_t = lstm_step_forward(x[:, t], h[t], c, Wx, Wh, b)
+        h.append(next_h)
+        cache.append(cache_t)
+
+    h = np.stack(h[1:], axis=1)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -421,7 +450,21 @@ def lstm_backward(dh, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    (N, T, H), D = dh.shape, cache[0][2][0].shape[1]
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, 4 * H))
+    dWh = np.zeros((H, 4 * H))
+    db = np.zeros((4 * H,))
+    dc = np.zeros_like(dh0)
+
+    for t in range(T - 1, -1, -1):
+        dx[:, t], dh0, dc, dWx_t, dWh_t, db_t = lstm_step_backward(
+            dh[:, t] + dh0, dc, cache[t]
+        )
+        dWx += dWx_t
+        dWh += dWh_t
+        db += db_t
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
