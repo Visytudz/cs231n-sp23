@@ -7,12 +7,14 @@ import math
 This file defines layer types that are commonly used for transformers.
 """
 
+
 class PositionalEncoding(nn.Module):
     """
     Encodes information about the positions of the tokens in the sequence. In
     this case, the layer has no learnable parameters, since it is a simple
     function of sines and cosines.
     """
+
     def __init__(self, embed_dim, dropout=0.1, max_len=5000):
         """
         Construct the PositionalEncoding layer.
@@ -38,7 +40,12 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        i = torch.arange(max_len)[:, None]
+        pows = torch.pow(10000, -torch.arange(0, embed_dim, 2) / embed_dim)
+
+        # Compute positional values sin/cos
+        pe[0, :, 0::2] = torch.sin(i * pows)
+        pe[0, :, 1::2] = torch.cos(i * pows)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -47,7 +54,7 @@ class PositionalEncoding(nn.Module):
 
         # Make sure the positional encodings will be saved with the model
         # parameters (mostly for completeness).
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
         """
@@ -70,7 +77,8 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        output = x + self.pe[:, :S]
+        output = self.dropout(output)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -117,7 +125,7 @@ class MultiHeadAttention(nn.Module):
         self.query = nn.Linear(embed_dim, embed_dim)
         self.value = nn.Linear(embed_dim, embed_dim)
         self.proj = nn.Linear(embed_dim, embed_dim)
-        
+
         self.attn_drop = nn.Dropout(dropout)
 
         self.n_head = num_heads
@@ -165,12 +173,24 @@ class MultiHeadAttention(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        H = self.n_head
+        # (N, H, S, E//H)
+        Q = self.query(query).view(N, S, H, E // H).permute(0, 2, 1, 3)
+        K = self.key(key).view(N, T, H, E // H).permute(0, 2, 1, 3)
+        V = self.value(value).view(N, T, H, E // H).permute(0, 2, 1, 3)
+
+        # (N, H, S, E//H) * (N, H, E//H, T) --> (N, H, S, T)
+        A = Q.matmul(K.transpose(2, 3)) / math.sqrt(self.head_dim)
+        if attn_mask is not None:
+            A = A.masked_fill(attn_mask == 0, float("-inf"))
+        A = self.attn_drop(F.softmax(A, dim=-1))
+
+        # (N, H, S, T) * (N, H, T, H//E) --> (N, H, S, H//E) --> (N, S, H, H//E)
+        Y = A.matmul(V).transpose(1, 2).contiguous().view(N, S, E)
+        output = self.proj(Y)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
         return output
-
-

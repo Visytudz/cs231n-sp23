@@ -16,8 +16,16 @@ class CaptioningTransformer(nn.Module):
     works on sequences of length T, uses word vectors of dimension W, and
     operates on minibatches of size N.
     """
-    def __init__(self, word_to_idx, input_dim, wordvec_dim, num_heads=4,
-                 num_layers=2, max_length=50):
+
+    def __init__(
+        self,
+        word_to_idx,
+        input_dim,
+        wordvec_dim,
+        num_heads=4,
+        num_layers=2,
+        max_length=50,
+    ):
         """
         Construct a new CaptioningTransformer instance.
 
@@ -42,7 +50,9 @@ class CaptioningTransformer(nn.Module):
         self.embedding = nn.Embedding(vocab_size, wordvec_dim, padding_idx=self._null)
         self.positional_encoding = PositionalEncoding(wordvec_dim, max_len=max_length)
 
-        decoder_layer = TransformerDecoderLayer(input_dim=wordvec_dim, num_heads=num_heads)
+        decoder_layer = TransformerDecoderLayer(
+            input_dim=wordvec_dim, num_heads=num_heads
+        )
         self.transformer = TransformerDecoder(decoder_layer, num_layers=num_layers)
         self.apply(self._init_weights)
 
@@ -90,7 +100,15 @@ class CaptioningTransformer(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        embeded = self.embedding(captions)
+        embeded = self.positional_encoding(embeded)
+
+        visual = self.visual_projection(features)[:, None, :]
+        tgt_mask = torch.tril(torch.ones((T, T)))
+        
+        out = self.transformer(embeded,visual,tgt_mask)
+        scores = self.output(out)
+        
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -145,6 +163,7 @@ class TransformerDecoderLayer(nn.Module):
     """
     A single layer of a Transformer decoder, to be used with TransformerDecoder.
     """
+
     def __init__(self, input_dim, num_heads, dim_feedforward=2048, dropout=0.1):
         """
         Construct a TransformerDecoderLayer instance.
@@ -170,7 +189,6 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout3 = nn.Dropout(dropout)
 
         self.activation = nn.ReLU()
-
 
     def forward(self, tgt, memory, tgt_mask=None):
         """
@@ -202,9 +220,11 @@ class TransformerDecoderLayer(nn.Module):
         tgt = self.norm3(tgt)
         return tgt
 
+
 def clones(module, N):
     "Produce N identical layers."
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+
 
 class TransformerDecoder(nn.Module):
     def __init__(self, decoder_layer, num_layers):
